@@ -1,0 +1,49 @@
+#include <ESP8266WiFi.h>
+#include <ESP8266WebServer.h>
+
+// Access point credentials
+const char* ssid = "ESP8266_AccessPoint";
+const char* password = "12345678";
+
+ESP8266WebServer server(80);  // Initialize web server on port 80
+String receivedText = "";      // Variable to store received text
+String lastSentText = "";      // Variable to store last sent text
+
+void setup() {
+  Serial.begin(4800);          // Communication with Arduino
+  Serial.println("ESP8266 ready");
+
+  WiFi.softAP(ssid, password); // Start access point
+  IPAddress IP = WiFi.softAPIP();
+  Serial.print("AP IP Address: ");
+  Serial.println(IP);
+
+  // Serve HTML form on root path
+  server.on("/", HTTP_GET, []() {
+    server.send(200, "text/html", "<form action='/submit' method='POST'><input type='text' name='inputText'><input type='submit' value='Submit'></form>");
+  });
+
+  // Handle form submission
+  server.on("/submit", HTTP_POST, []() {
+    if (server.hasArg("inputText")) {
+      receivedText = server.arg("inputText");
+      //Serial.println("Text received: " + receivedText);  // Log received text
+
+      // Check if the received text has changed before sending
+      if (receivedText != lastSentText) {
+        //Serial.print("Sending to Arduino: ");
+        Serial.println(receivedText);
+        lastSentText = receivedText;  // Update lastSentText to the current receivedText
+      }
+      server.send(200, "text/html", "Text received: " + receivedText + "<br><a href='/'>Go Back</a>");
+    } else {
+      server.send(200, "text/html", "No text received<br><a href='/'>Go Back</a>");
+    }
+  });
+
+  server.begin();  // Start the web server
+}
+
+void loop() {
+  server.handleClient();
+}
