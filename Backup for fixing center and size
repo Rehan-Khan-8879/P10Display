@@ -1,0 +1,70 @@
+#include <SoftwareSerial.h>   
+#include <DMD.h>
+#include <TimerOne.h>
+#include <SPI.h>
+#include <Arial_black_16.h> 
+
+const int rxPin = 2;           // Arduino RX (connect to ESP8266 TX)
+const int txPin = 3;           // Arduino TX (connect to ESP8266 RX)
+SoftwareSerial espSerial(rxPin, txPin);
+
+#define WIDTH 3   // Number of P10 modules horizontally
+#define HEIGHT 1  // Number of P10 modules vertically
+#define PANEL_WIDTH 32   // Width of each panel
+#define DISPLAY_WIDTH (WIDTH * PANEL_WIDTH)
+
+DMD dmd(WIDTH, HEIGHT);
+String message = "ESP IP 192.168.4.1";  // Default message
+bool newMessage = false;                    // Flag to check for new messages
+
+void ScanDMD() {
+  dmd.scanDisplayBySPI();
+}
+
+void setup() {
+  Serial.begin(9600);       // Initialize serial communication for HC-05
+  espSerial.begin(4800);    // Start SoftwareSerial communication with ESP8266
+
+  Timer1.initialize(5000);
+  Timer1.attachInterrupt(ScanDMD);
+  dmd.clearScreen(true);    // Clear display at start
+}
+
+void loop() {
+  // Check if there's data available from Serial (e.g., Bluetooth)
+  if (Serial.available() > 0) {
+    message = Serial.readString();  // Read the entire incoming message
+    newMessage = true;              // Set flag to display the new message
+    Serial.println("Received from Serial: " + message);
+  }
+
+  // Check if there's data available from the ESP8266
+  if (espSerial.available() > 0) {
+    message = espSerial.readString();  // Read the entire incoming message
+    newMessage = true;                 // Set flag to display the new message
+    Serial.println("Received from ESP8266: " + message);
+  }
+
+  // If a new message has been received, display it
+  if (newMessage) {
+    displayMessage(message);
+    newMessage = false;  // Reset flag after displaying
+  }
+}
+
+void displayMessage(String msg) {
+  dmd.clearScreen(true);           // Clear display for new message
+  dmd.selectFont(Arial_Black_16);  // Use the larger font
+
+  // Calculate the width of the message in pixels
+  int textWidth = msg.length() * 16;  // Approximate width of each character in Arial_Black_16
+  int startX = (DISPLAY_WIDTH - textWidth) / 2;  // Center the text horizontally
+
+  dmd.drawMarquee(msg.c_str(), msg.length(), startX, 0);
+
+  // Continuously scroll the message until a new one arrives
+  while (!Serial.available() && !espSerial.available()) {
+    dmd.stepMarquee(-1, 0);
+    delay(50);  // Adjust speed of scrolling
+  }
+}
