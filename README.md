@@ -56,7 +56,8 @@ And other N pind are not connected
 Second Thing Second
 we have connected the Bluetooth module which is hc05 with Arduino uno in order to build Bluetooth communication 
 we have connected tx and rx of hc05 to Arduino pin 0 and 1 respectively 
-         its work as when we send the text over hc05 Arduino read that message and translate its and convert it into string and disply it on P10 display its use "if(Serial.available()){}" command to check for any incoming message 
+         its work as when we send the text over hc05 Arduino read that message and translate its and convert it into string and disply it on P10 display its 
+         use "if(Serial.available()){}" command to check for any incoming message 
 
 
 /////////////////////////////////////////////ESP8266////////////////////////////////////////////////////////////////
