@@ -1,0 +1,108 @@
+#include <EEPROM.h>
+#define cali 3
+#define button 4
+int value[32];
+int state;
+//  Update the valu with new value
+int update(int i) {
+  
+  while (digitalRead(button) == HIGH); 
+  delay(50);
+  int data = analogRead(A0);
+  while (digitalRead(button) == LOW);
+  delay(50);
+
+  return data;
+}
+// Save calibration data to EEPROM
+void saveCalibration() {
+  for (int i = 0; i < 32; i++) {
+    EEPROM.put(i * sizeof(int), value[i]);
+  }
+  Serial.println("Calibration saved to EEPROM.");
+}
+// Load calibration data from EEPROM
+void loadCalibration() {
+  for (int i = 0; i < 32; i++) {
+    EEPROM.get(i * sizeof(int), value[i]);
+  }
+  Serial.println("Calibration loaded from EEPROM.");
+}
+
+char key[32] = {
+  'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
+  'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P',
+  'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 
+  'Y', 'Z', '1', '2', '7', '4', '5', '6'
+};
+
+String keyword ="";
+
+void setup() {
+  // put your setup code here, to run once:
+  Serial.begin(9600);
+  pinMode(A0, INPUT);
+  pinMode(cali, INPUT_PULLUP);
+  pinMode(button, INPUT_PULLUP);
+
+  // Check if calibration mode is enabled
+  state = digitalRead(cali);
+  if (state == LOW) { 
+    Serial.println("Calibration mode is activated");
+    delay(1000);
+    for (int i = 0; i < 32; i++) {
+      Serial.print("Calibrating key ");
+      Serial.println(i);
+      value[i] = update(i);
+    }
+    saveCalibration(); // Save the calibrated values
+    Serial.println("Calibration done.");
+  } else {
+    loadCalibration(); // Load the saved values
+    Serial.println("Loding the Calibration Value");
+    delay(1000);
+  }
+  for(int i = 0;i<32;i++){
+    Serial.println(value[i]);
+  }
+}
+
+void loop() {
+  // put your main code here, to run repeatedly:
+  int val = analogRead(A0);
+  //Checks the all the keys
+  for(int i =0;i<32;i++){
+    if(val >1000){break;}
+    if(abs(val - value[i]) < 2){
+      char pressed = key[i];
+      //Check is thare any integer
+      if((pressed != '1')&&(pressed != '7')&&(pressed != '2')){ 
+        keyword += pressed;
+      }
+      //Key to erase data
+      if(pressed=='1'){
+        keyword = "";
+      }
+      //Removing one character
+      if(pressed == '7'){
+        if(keyword.length()>0){
+          keyword.remove(keyword.length()-1);
+        }
+        
+      }
+      //Key to trnsmit the data
+      if(pressed =='2'){
+        Serial.println("U have Send This " + keyword);
+      }
+      Serial.println(keyword);           // This line is for testing purpose
+      //Hold on until key is Relese
+      while(true){
+        val = analogRead(A0);
+        if(abs(val - value[i]) > 15){break;}
+      }
+
+    }
+  }
+  //Serial.println(val);
+  delay(50);
+}
