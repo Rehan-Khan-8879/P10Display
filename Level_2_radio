@@ -1,9 +1,9 @@
 #include <EEPROM.h>
 #define cali 3
 #define button 4
-int value[32];
+int value[32]; // Array to store analog value
 int state;
-//  Update the valu with new value
+//  Update the value with new value
 int update(int i) {
   
   while (digitalRead(button) == HIGH); 
@@ -26,10 +26,9 @@ void loadCalibration() {
   for (int i = 0; i < 32; i++) {
     EEPROM.get(i * sizeof(int), value[i]);
   }
-  Serial.println("Calibration loaded from EEPROM.");
 }
-
-char key[32] = {
+// Array to Store Alphabet
+char key[32] = {     
   'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
   'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P',
   'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 
@@ -61,9 +60,6 @@ void setup() {
     loadCalibration(); // Load the saved values
     Serial.println("Loding the Calibration Value");
     delay(1000);
-  }
-  for(int i = 0;i<32;i++){
-    Serial.println(value[i]);
   }
 }
 
