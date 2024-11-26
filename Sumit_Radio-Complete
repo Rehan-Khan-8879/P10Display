@@ -1,0 +1,182 @@
+//LCD
+#include <LiquidCrystal_I2C.h>
+
+#include <EEPROM.h>
+#define cali 3
+#define button 4
+//NRF
+#include <RF24.h>
+RF24 radio(9, 10);
+const byte address[6] = "00001"; // Address must b same
+//LCD
+int count=0;
+// Setting up lcd 
+LiquidCrystal_I2C lcd(0x27, 20, 4);
+int value[32]; // Array to store analog value
+int state;
+//  Update the value with new value
+int update(int i) {
+  
+  while (digitalRead(button) == HIGH); 
+  delay(50);
+  int data = analogRead(A0);
+  while (digitalRead(button) == LOW);
+  delay(50);
+
+  return data;
+}
+// Save calibration data to EEPROM
+void saveCalibration() {
+  for (int i = 0; i < 32; i++) {
+    EEPROM.put(i * sizeof(int), value[i]);
+  }
+  Serial.println("Calibration saved to EEPROM.");
+}
+// Load calibration data from EEPROM
+void loadCalibration() {
+  for (int i = 0; i < 32; i++) {
+    EEPROM.get(i * sizeof(int), value[i]);
+  }
+}
+// Array to Store Alphabet
+char key[32] = {     
+  'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
+  'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P',
+  'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 
+  'Y', 'Z', '1', '2', '7', ' ', '5', '6'
+};
+
+String keyword ="";
+
+void setup() {
+  // put your setup code here, to run once:
+  Serial.begin(9600);
+  // initalizing the Lcd and setting backlight and coursor
+  lcd.init();
+  lcd.backlight();
+  lcd.setCursor(0, 0);
+  //NRF Setting and all
+  if (!radio.begin()) { 
+    lcd.print("NRF24 init failed");
+    while (1); // Halt if NRF24 fails
+  }
+  radio.openWritingPipe(address);
+  radio.setPALevel(RF24_PA_LOW);
+  radio.stopListening();
+
+  pinMode(A0, INPUT);
+  pinMode(cali, INPUT_PULLUP);
+  pinMode(button, INPUT_PULLUP);
+
+  // Check if calibration mode is enabled
+  state = digitalRead(cali);
+  if (state == LOW) { 
+    Serial.println("Calibration mode is activated");
+    lcd.print("Calibration mode");
+    lcd.setCursor(0,1);
+    lcd.print("is activated");
+    delay(2000);
+    lcd.clear();
+    for (int i = 0; i < 32; i++) {
+      Serial.print("Calibrating key ");
+      //LCD
+      lcd.setCursor(0, 0);
+      lcd.print("Calibrating key ");
+      lcd.setCursor(18, 0);
+      lcd.print(i);
+
+      Serial.println(i);
+      value[i] = update(i);
+    }
+    saveCalibration(); // Save the calibrated values
+    //LCD
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("Calibration done.");
+    delay(2000);
+    lcd.setCursor(0, 1);
+    lcd.print("Remove the wire");
+    delay(2000);
+    while(state == LOW){state = digitalRead(cali);}
+    Serial.println("Calibration done.");
+  } else {
+    loadCalibration(); // Load the saved values
+    //LCD
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("Loding the Calibration Value");
+
+    Serial.println("Loding the Calibration Value");
+    delay(2000);
+   }
+  lcd.clear();
+}
+
+void loop() {
+  // put your main code here, to run repeatedly:
+  int val = analogRead(A0);
+  //Checks the all the keys
+  for(int i =0;i<32;i++){
+    if(val >1000){break;}
+    if(abs(val - value[i]) < 2){
+      char pressed = key[i];
+      //Check is thare any integer
+      if((pressed != '1')&&(pressed != '7')&&(pressed != '2')){ 
+        keyword += pressed;
+      }
+      //Key to erase data
+      if(pressed=='1'){
+        keyword = "";
+      }
+      //Removing one character
+      if(pressed == '7'){
+        if(keyword.length()>0){
+          keyword.remove(keyword.length()-1);
+        }
+        
+      }
+      //NRF Key to trnsmit the data
+      if (pressed == '2') { 
+        if (keyword.length() > 0) {
+          lcd.clear();
+          lcd.setCursor(0, 0);
+          lcd.print("Sending: ");
+          lcd.setCursor(0, 1);
+          lcd.print(keyword);
+          //  NRF 
+          //from this part its converted into diffrent string 
+          char keywordArray[keyword.length()+1];
+          keyword.toCharArray(keywordArray,keyword.length()+1);
+          // Transmit data using NRF24
+          bool success = radio.write(&keywordArray,sizeof(keywordArray));
+          //till here
+
+          if (success) {
+            Serial.println("Data sent: " + keyword);
+            lcd.setCursor(0, 2);
+            lcd.print("Send OK");
+          } else {
+            Serial.println("Data send failed!");
+            lcd.setCursor(0, 2);
+            lcd.print("Send FAIL");
+          }
+          delay(2000);
+        }
+      }
+      //LCD
+      lcd.clear();
+      lcd.setCursor(0, 0);
+      lcd.print(keyword);
+
+      Serial.println(keyword);           // This line is for testing purpose
+      //Hold on until key is Relese
+      while(true){
+        val = analogRead(A0);
+        if(abs(val - value[i]) > 15){break;}
+      }
+
+    }
+  }
+  //Serial.println(val);
+  delay(50);
+}
